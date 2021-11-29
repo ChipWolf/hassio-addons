@@ -1,0 +1,10 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Ulrar Hass.io Add-ons: owntone server
+# Runs the owntone Server
+# ==============================================================================
+# shellcheck disable=SC1091
+
+bashio::log.info 'Starting the owntone Server...'
+# Run owntone
+exec owntone -f -c /share/owntone/owntone.conf -P /var/run/owntone.pid
