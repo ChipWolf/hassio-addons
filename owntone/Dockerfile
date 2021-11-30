@@ -16,6 +16,7 @@ ENV BUILD_DEPS \
     libavfilter-dev \
     libavformat-dev \
     libavutil-dev \
+    libconfig-dev \
     libconfuse-dev \
     libcurl4-gnutls-dev \
     libevent-dev \
@@ -25,10 +26,13 @@ ENV BUILD_DEPS \
     libmxml-dev \
     libplist-dev \
     libplist-dev \
+    libpopt-dev \
     libprotobuf-c-dev \
     libpulse-dev \
     libsodium-dev \
+    libsoxr-dev \
     libsqlite3-dev \
+    libssl-dev \
     libswscale-dev \
     libtool \
     libunistring-dev \
@@ -63,16 +67,9 @@ ENV RUN_DEPS \
     zlib1g \
     avahi-daemon
 
-#RUN sed -i 's/main/main contrib non-free/g' /etc/apt/sources.list
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     curl gpg gpg-agent dirmngr apt-transport-https gawk gettext gperf \
     && rm -rf /var/lib/apt/lists/*
-# RUN if [ ! "$BUILD_ARCH" = "aarch64" ] ; then \
-#         curl -L https://apt.mopidy.com/mopidy.list -o /etc/apt/sources.list.d/mopidy.list \
-#         && curl -L https://apt.mopidy.com/mopidy.gpg -o /tmp/mopidy.gpg \
-#         && apt-key add /tmp/mopidy.gpg; \
-#     fi
-
 
 FROM base AS builder
 ARG BUILD_ARCH
@@ -98,13 +95,27 @@ RUN git clone --depth 1 https://github.com/owntone/owntone-server.git . \
     && make \
     && make install DESTDIR=/tmp/owntone-install
 
+WORKDIR /tmp/shairport
+RUN git clone --depth 1 https://github.com/mikebrady/shairport-sync.git . \
+    && autoreconf -i -f \
+    && ./configure \
+        --with-pa \
+        --with-pipe \
+        --with-avahi \
+        --with-ssl=openssl \
+        --with-soxr \
+        --with-metadata \
+    && make \
+    && make install DESTDIR=/tmp/shairport-install
 
 FROM base AS runner
 ARG BUILD_ARCH
 COPY --from=builder /tmp/owntone-install /
+COPY --from=builder /tmp/shairport-install /
 RUN apt-get update -y && apt-get install -y --no-install-recommends \
     ${RUN_DEPS} nginx \
     && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /usr/local/etc
 RUN sed -i -e 's/\(uid.*=.*\)/uid = "root"/g' owntone.conf \
     && sed -i s#"ipv6 = yes"#"ipv6 = no"#g owntone.conf \
